@@ -247,21 +247,20 @@ def stats():
 
 # ─── Email Announcement ───────────────────────────────────────────────────────
 @app.route("/api/announcement", methods=["POST"])
-def announcement():
-
-    data = request.get_json() or {}
-    message = data.get("message", "").strip()
-
-    token = get_token()
-
-    if not message:
-        return jsonify({"error": "Message cannot be empty"}), 400
+def send_announcement():
 
     try:
+
+        data = request.get_json() or {}
+        message = data.get("message", "").strip()
+
+        if not message:
+            return jsonify({"error": "Message required"}), 400
+
+        token = get_token()
         client = get_client_with_token(token)
 
         res = client.table("students").select("email, student_name").execute()
-
         students = res.data or []
 
         sent = 0
@@ -272,8 +271,8 @@ def announcement():
 
                 send_email(
                     student["email"],
-                    "New Announcement from Mentor",
-                    f"Dear {student['student_name']},\n\n{message}\n\nRegards,\nYour Mentor"
+                    "New Announcement",
+                    f"Dear {student['student_name']},\n\n{message}"
                 )
 
                 sent += 1
@@ -282,15 +281,16 @@ def announcement():
                 errors.append(str(e))
 
         return jsonify({
-            "success": True,
             "sent": sent,
             "total": len(students),
             "errors": errors
         })
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
+        return jsonify({
+            "error": str(e)
+        }), 500
 
 # ─── Health Check ─────────────────────────────────────────────────────────────
 @app.route("/health")
