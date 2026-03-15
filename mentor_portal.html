@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MentorSpace — Mentor Portal</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --ink: #0f1117;
+    --ink2: #3d4152;
+    --muted: #8c90a0;
+    --border: #e4e6ed;
+    --surface: #ffffff;
+    --surface2: #f7f8fc;
+    --accent: #4f6ef7;
+    --accent2: #6c3de8;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --sidebar-w: 240px;
+  }
+  * { font-family: 'DM Sans', sans-serif; box-sizing: border-box; }
+  h1,h2,.serif { font-family: 'Playfair Display', serif; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+  /* Animations */
+  @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  @keyframes slideIn { from { transform:translateX(-100%); } to { transform:translateX(0); } }
+  @keyframes ripple { to { transform:scale(4); opacity:0; } }
+
+  .fade-up { animation: fadeUp .35s cubic-bezier(.22,1,.36,1) both; }
+  .spinner { animation: spin 1s linear infinite; }
+  .pulse { animation: pulse 1.5s ease infinite; }
+
+  /* Sidebar */
+  #sidebar {
+    width: var(--sidebar-w);
+    background: var(--ink);
+    height: 100vh;
+    position: fixed;
+    left: 0; top: 0;
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    transition: transform .3s cubic-bezier(.22,1,.36,1);
+  }
+  #main-content { margin-left: var(--sidebar-w); min-height: 100vh; background: var(--surface2); }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; border-radius: 8px; cursor: pointer;
+    color: #8c90a0; font-size: 14px; font-weight: 500;
+    transition: all .18s; margin: 1px 8px;
+    position: relative; overflow: hidden;
+  }
+  .nav-item:hover { background: rgba(255,255,255,.07); color: #fff; }
+  .nav-item.active { background: var(--accent); color: #fff; }
+  .nav-item svg { width:16px; height:16px; flex-shrink:0; }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    transition: transform .2s, box-shadow .2s;
+  }
+  .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,.08); }
+
+  /* Form inputs */
+  .field {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--surface);
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .field:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,110,247,.12); }
+  .field::placeholder { color: var(--muted); }
+
+  label.lbl { display:block; font-size:12px; font-weight:600; color:var(--ink2); margin-bottom:5px; letter-spacing:.02em; text-transform:uppercase; }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 18px; border-radius: 10px; font-size: 14px;
+    font-weight: 600; cursor: pointer; border: none;
+    transition: all .18s; white-space: nowrap;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: #3d5ce4; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(79,110,247,.35); }
+  .btn-danger { background: var(--danger); color: white; }
+  .btn-danger:hover { background: #dc2626; }
+  .btn-ghost { background: var(--surface2); color: var(--ink2); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--border); }
+  .btn-success { background: var(--success); color: white; }
+  .btn-success:hover { background: #059669; }
+  .btn:disabled { opacity: .55; cursor: not-allowed; transform: none !important; }
+
+  /* Badge */
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 2px 10px; border-radius: 99px; font-size: 11px; font-weight: 600;
+  }
+  .badge-green { background: #d1fae5; color: #065f46; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+  .badge-yellow { background: #fef3c7; color: #92400e; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+
+  /* Table */
+  table { width:100%; border-collapse:collapse; }
+  thead th { background: var(--surface2); padding: 11px 16px; text-align:left; font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  tbody tr { border-top: 1px solid var(--border); transition: background .12s; }
+  tbody tr:hover { background: var(--surface2); }
+  tbody td { padding: 13px 16px; font-size:14px; color:var(--ink2); }
+
+  /* Auth page */
+  #auth-bg {
+    min-height: 100vh;
+    background: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  #auth-bg::before {
+    content:'';
+    position:absolute; inset:0;
+    background: radial-gradient(ellipse at 70% 30%, rgba(79,110,247,.3) 0%, transparent 60%),
+                radial-gradient(ellipse at 20% 80%, rgba(108,61,232,.25) 0%, transparent 55%);
+  }
+  .auth-card {
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 44px 40px;
+    width: 100%;
+    max-width: 440px;
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 32px 80px rgba(0,0,0,.4);
+  }
+
+  /* Progress ring */
+  .ring { transform: rotate(-90deg); }
+  .ring-track { fill: none; stroke: var(--border); }
+  .ring-fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset .8s cubic-bezier(.22,1,.36,1); }
+
+  /* Tabs */
+  .tab { padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; color: var(--muted); transition: all .15s; }
+  .tab.active { background: var(--accent); color: white; }
+
+  /* Notification */
+  #notif {
+    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    display: flex; flex-direction: column; gap: 8px;
+    pointer-events: none;
+  }
+  .notif-item {
+    background: var(--ink); color: white;
+    padding: 12px 18px; border-radius: 12px;
+    font-size: 14px; font-weight: 500;
+    box-shadow: 0 8px 32px rgba(0,0,0,.3);
+    animation: fadeUp .3s ease;
+    display: flex; align-items: center; gap: 8px;
+    pointer-events: all;
+    min-width: 260px;
+  }
+  .notif-item.success { border-left: 4px solid var(--success); }
+  .notif-item.error { border-left: 4px solid var(--danger); }
+  .notif-item.info { border-left: 4px solid var(--accent); }
+
+  /* Mobile */
+  #menu-btn { display: none; }
+  #sidebar-overlay { display: none; }
+
+  @media (max-width: 768px) {
+    #sidebar { transform: translateX(-100%); }
+    #sidebar.open { transform: translateX(0); }
+    #main-content { margin-left: 0; }
+    #menu-btn { display: flex; }
+    #sidebar-overlay { display: block; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:99; opacity:0; pointer-events:none; transition:opacity .3s; }
+    #sidebar-overlay.show { opacity:1; pointer-events:all; }
+  }
+
+  /* CGPA bar */
+  .cgpa-bar { height: 6px; border-radius: 99px; background: var(--border); overflow: hidden; }
+  .cgpa-fill { height: 100%; border-radius: 99px; transition: width .8s cubic-bezier(.22,1,.36,1); }
+
+  /* Search */
+  .search-wrap { position: relative; }
+  .search-wrap svg { position:absolute; left:12px; top:50%; transform:translateY(-50%); width:16px; height:16px; color:var(--muted); pointer-events:none; }
+  .search-wrap input { padding-left: 36px; }
+
+  /* Section header */
+  .section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
+
+  /* Empty state */
+  .empty-state { padding: 60px 24px; text-align:center; }
+  .empty-state svg { margin: 0 auto 16px; opacity: .35; }
+
+  /* Skeleton */
+  .skel { background: linear-gradient(90deg, var(--border) 25%, var(--surface2) 50%, var(--border) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+</style>
+</head>
+<body style="background:var(--surface2)">
+
+<!-- Notifications -->
+<div id="notif"></div>
+
+<!-- Auth overlay -->
+<div id="auth-view" style="display:none">
+  <div id="auth-bg">
+    <div class="auth-card fade-up">
+      <div style="text-align:center;margin-bottom:28px">
+        <div style="width:48px;height:48px;background:var(--accent);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
+          <svg width="24" height="24" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M12 14c2.67 0 8 1.34 8 4v2H4v-2c0-2.66 5.33-4 8-4zm0-2a4 4 0 100-8 4 4 0 000 8z"/></svg>
+        </div>
+        <h1 style="font-size:26px;color:var(--ink);margin-bottom:4px">MentorSpace</h1>
+        <p style="color:var(--muted);font-size:14px">Manage your mentees with ease</p>
+      </div>
+
+      <!-- Tab switch -->
+      <div style="display:flex;background:var(--surface2);border-radius:10px;padding:3px;margin-bottom:24px;gap:3px">
+        <button class="tab active" id="tab-signin" style="flex:1;text-align:center" onclick="switchTab('signin')">Sign In</button>
+        <button class="tab" id="tab-signup" style="flex:1;text-align:center" onclick="switchTab('signup')">Sign Up</button>
+      </div>
+
+      <div id="auth-error" style="display:none;background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:14px"></div>
+
+      <!-- Sign In Form -->
+      <div id="form-signin">
+        <div style="margin-bottom:16px">
+          <label class="lbl">Email</label>
+          <input id="si-email" type="email" class="field" placeholder="you@college.edu"/>
+        </div>
+        <div style="margin-bottom:20px">
+          <label class="lbl">Password</label>
+          <input id="si-pass" type="password" class="field" placeholder="••••••••"/>
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center" id="si-btn" onclick="doSignIn()">
+          Sign In →
+        </button>
+      </div>
+
+      <!-- Sign Up Form -->
+      <div id="form-signup" style="display:none">
+        <div style="margin-bottom:16px">
+          <label class="lbl">Full Name</label>
+          <input id="su-name" type="text" class="field" placeholder="Dr. Radhika Sharma"/>
+        </div>
+        <div style="margin-bottom:16px">
+          <label class="lbl">Email</label>
+          <input id="su-email" type="email" class="field" placeholder="mentor@college.edu"/>
+        </div>
+        <div style="margin-bottom:20px">
+          <label class="lbl">Password</label>
+          <input id="su-pass" type="password" class="field" placeholder="Min. 6 characters"/>
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center" id="su-btn" onclick="doSignUp()">
+          Create Account →
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app-view" style="display:none">
+
+  <!-- Sidebar overlay (mobile) -->
+  <div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <div style="padding:20px 16px 16px">
+      <div style="display:flex;align-items:center;gap:10px;padding:4px 8px">
+        <div style="width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="18" height="18" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M12 14c2.67 0 8 1.34 8 4v2H4v-2c0-2.66 5.33-4 8-4zm0-2a4 4 0 100-8 4 4 0 000 8z"/></svg>
+        </div>
+        <div>
+          <div style="color:#fff;font-weight:700;font-size:15px;font-family:'Playfair Display',serif">MentorSpace</div>
+          <div style="color:var(--muted);font-size:11px" id="mentor-name-sidebar">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:0 0 8px;flex:1">
+      <div style="padding:0 8px 6px;margin-top:4px">
+        <p style="color:#4b5060;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:0 8px">Menu</p>
+      </div>
+      <div class="nav-item active" id="nav-dashboard" onclick="navigate('dashboard')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-item" id="nav-students" onclick="navigate('students')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        All Students
+      </div>
+      <div class="nav-item" id="nav-add" onclick="navigate('add-student')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        Add Student
+      </div>
+      <div class="nav-item" id="nav-announce" onclick="navigate('announce')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 17H2a3 3 0 000 6h20a3 3 0 000-6zM4 17V4a2 2 0 012-2h12a2 2 0 012 2v13"/><path d="M12 12v5"/><path d="M8 9h8"/><path d="M8 13h4"/></svg>
+        Announcements
+      </div>
+    </div>
+
+    <div style="padding:12px 16px;border-top:1px solid #1e2130">
+      <div style="display:flex;align-items:center;gap:10px;padding:8px">
+        <div style="width:32px;height:32px;background:#1e2130;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="14" height="14" fill="none" stroke="var(--muted)" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="color:#d1d4dd;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="mentor-name-footer">—</div>
+          <div style="color:#4b5060;font-size:11px">Mentor</div>
+        </div>
+        <button onclick="doSignOut()" title="Sign Out" style="background:none;border:none;cursor:pointer;padding:4px;color:#4b5060;transition:color .15s" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#4b5060'">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <div id="main-content">
+    <!-- Top bar (mobile) -->
+    <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50" id="topbar">
+      <button id="menu-btn" onclick="openSidebar()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--ink2)">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div style="font-family:'Playfair Display',serif;font-size:17px;color:var(--ink)" id="page-title">Dashboard</div>
+    </div>
+
+    <div id="page-content" style="padding:28px 28px 48px">
+      <!-- Pages rendered here -->
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── Config ───────────────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://fdcxktdnuxpoqlkxihuo.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZkY3hrdGRudXhwb3Fsa3hpaHVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MDM5MTQsImV4cCI6MjA4ODk3OTkxNH0.tSxH3paaZDss0WabGU6EjuILlAAWRfLIce1OxQFzJ3w';
+
+const EMAIL_SERVICE_URL = '/api/announcement'; // If Flask is running - falls back gracefully
+
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ─── State ────────────────────────────────────────────────────────────────────
+const S = {
+  page: 'dashboard',
+  user: null,
+  mentor: null,
+  students: [],
+  currentStudentId: null,
+  stats: { total:0, arrears:0, lowCGPA:0, scholarship:0 }
+};
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+function notify(msg, type='info', icon='') {
+  const icons = { success:'✅', error:'❌', info:'ℹ️' };
+  const el = document.createElement('div');
+  el.className = `notif-item ${type}`;
+  el.innerHTML = `<span>${icon||icons[type]}</span><span>${msg}</span>`;
+  document.getElementById('notif').appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; el.style.transform='translateX(20px)'; el.style.transition='all .3s'; setTimeout(()=>el.remove(),300); }, 3500);
+}
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.getElementById('form-signin').style.display = tab==='signin' ? '' : 'none';
+  document.getElementById('form-signup').style.display = tab==='signup' ? '' : 'none';
+  document.getElementById('tab-signin').className = 'tab' + (tab==='signin'?' active':'');
+  document.getElementById('tab-signup').className = 'tab' + (tab==='signup'?' active':'');
+  document.getElementById('auth-error').style.display = 'none';
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg; el.style.display = '';
+}
+
+async function doSignIn() {
+  const email = document.getElementById('si-email').value.trim();
+  const pass = document.getElementById('si-pass').value;
+  const btn = document.getElementById('si-btn');
+  if (!email || !pass) { showAuthError('Please fill in all fields.'); return; }
+  btn.textContent = 'Signing in…'; btn.disabled = true;
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (error) throw error;
+    await loadMentorProfile(data.user);
+    showApp();
+  } catch(e) {
+    showAuthError(e.message || 'Sign in failed. Check your credentials.');
+    btn.textContent = 'Sign In →'; btn.disabled = false;
+  }
+}
+
+async function doSignUp() {
+  const name = document.getElementById('su-name').value.trim();
+  const email = document.getElementById('su-email').value.trim();
+  const pass = document.getElementById('su-pass').value;
+  const btn = document.getElementById('su-btn');
+  if (!name || !email || !pass) { showAuthError('Please fill in all fields.'); return; }
+  if (pass.length < 6) { showAuthError('Password must be at least 6 characters.'); return; }
+  btn.textContent = 'Creating account…'; btn.disabled = true;
+  try {
+    const { data, error } = await sb.auth.signUp({ email, password: pass });
+    if (error) throw error;
+    if (data.user) {
+      await sb.from('mentors').insert({ id: data.user.id, email, full_name: name });
+      await loadMentorProfile(data.user);
+      showApp();
+      notify('Welcome to MentorSpace! 🎓', 'success');
+    }
+  } catch(e) {
+    showAuthError(e.message || 'Sign up failed. Try again.');
+    btn.textContent = 'Create Account →'; btn.disabled = false;
+  }
+}
+
+async function doSignOut() {
+  await sb.auth.signOut();
+  S.user = null; S.mentor = null; S.students = [];
+  document.getElementById('app-view').style.display = 'none';
+  document.getElementById('auth-view').style.display = '';
+}
+
+async function loadMentorProfile(user) {
+  S.user = user;
+  const { data } = await sb.from('mentors').select('*').eq('id', user.id).maybeSingle();
+  S.mentor = data;
+  const name = data?.full_name || user.email;
+  document.getElementById('mentor-name-sidebar').textContent = user.email;
+  document.getElementById('mentor-name-footer').textContent = name;
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user) {
+    await loadMentorProfile(session.user);
+    showApp();
+  } else {
+    document.getElementById('auth-view').style.display = '';
+  }
+}
+
+function showApp() {
+  document.getElementById('auth-view').style.display = 'none';
+  document.getElementById('app-view').style.display = '';
+  navigate('dashboard');
+}
+
+// ─── Navigation ───────────────────────────────────────────────────────────────
+const PAGE_TITLES = { dashboard:'Dashboard', students:'All Students', 'add-student':'Add Student', 'view-student':'Student Profile', 'edit-student':'Edit Student', announce:'Announcements' };
+
+async function navigate(page, studentId=null) {
+  S.page = page;
+  S.currentStudentId = studentId;
+  closeSidebar();
+
+  // Update nav active
+  ['dashboard','students','add-student','announce'].forEach(p => {
+    const el = document.getElementById('nav-'+p);
+    if (el) el.className = 'nav-item' + (p===page?' active':'');
+  });
+
+  document.getElementById('page-title').textContent = PAGE_TITLES[page] || '';
+
+  const content = document.getElementById('page-content');
+  content.innerHTML = '<div style="display:flex;justify-content:center;padding:60px"><div class="spinner" style="width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%"></div></div>';
+
+  if (page === 'dashboard') await renderDashboard();
+  else if (page === 'students') await renderStudents();
+  else if (page === 'add-student') renderAddStudent();
+  else if (page === 'view-student') await renderViewStudent(studentId);
+  else if (page === 'edit-student') await renderEditStudent(studentId);
+  else if (page === 'announce') renderAnnounce();
+}
+
+// ─── Data helpers ─────────────────────────────────────────────────────────────
+async function fetchStudents() {
+  const { data, error } = await sb.from('students').select('*').order('created_at', { ascending: false });
+  if (error) throw error;
+  S.students = data || [];
+  return S.students;
+}
+
+function computeStats(students) {
+  return {
+    total: students.length,
+    arrears: students.filter(s => (s.arrears_details||'').trim()).length,
+    lowCGPA: students.filter(s => parseFloat(s.cgpa||0) < 7.0).length,
+    scholarship: students.filter(s => (s.scholarship_details||'').trim()).length
+  };
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+async function renderDashboard() {
+  const students = await fetchStudents();
+  const st = computeStats(students);
+
+  const cgpaColors = s => {
+    const v = parseFloat(s.cgpa||0);
+    if (v >= 8.5) return '#10b981';
+    if (v >= 7.0) return '#3b82f6';
+    if (v >= 6.0) return '#f59e0b';
+    return '#ef4444';
+  };
+
+  const topStudents = [...students].sort((a,b) => parseFloat(b.cgpa||0)-parseFloat(a.cgpa||0)).slice(0,5);
+  const recentStudents = students.slice(0,5);
+
+  document.getElementById('page-content').innerHTML = `
+  <div class="fade-up">
+    <div style="margin-bottom:24px">
+      <h2 style="font-size:22px;color:var(--ink);margin-bottom:4px">Good day, ${S.mentor?.full_name?.split(' ')[0] || 'Mentor'}! 👋</h2>
+      <p style="color:var(--muted);font-size:14px">Here's an overview of your mentees.</p>
+    </div>
+
+    <!-- Stat Cards -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:28px">
+      ${statCard('Total Students', st.total, '#4f6ef7', `<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>`, 'All mentees', 'students')}
+      ${statCard('Arrear Students', st.arrears, '#ef4444', `<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>`, 'Need attention', 'students')}
+      ${statCard('Low CGPA (<7)', st.lowCGPA, '#f59e0b', `<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>`, 'Below 7.0', 'students')}
+      ${statCard('Scholarship', st.scholarship, '#10b981', `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>`, 'Awardees', 'students')}
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+      <!-- CGPA Distribution -->
+      <div class="card" style="padding:22px">
+        <div style="font-weight:700;color:var(--ink);margin-bottom:16px;font-size:15px">CGPA Distribution</div>
+        ${students.length === 0 ? '<p style="color:var(--muted);font-size:13px;text-align:center;padding:24px 0">No students yet</p>' : cgpaDistribution(students)}
+      </div>
+
+      <!-- Top Performers -->
+      <div class="card" style="padding:22px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <span style="font-weight:700;color:var(--ink);font-size:15px">Top Performers</span>
+          <span style="font-size:12px;color:var(--muted)">By CGPA</span>
+        </div>
+        ${topStudents.length === 0 ? '<p style="color:var(--muted);font-size:13px;text-align:center;padding:24px 0">No students yet</p>' :
+          topStudents.map((s,i) => `
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 0;${i<topStudents.length-1?'border-bottom:1px solid var(--border)':''}">
+            <div style="width:28px;height:28px;border-radius:50%;background:${i===0?'#fbbf24':i===1?'#94a3b8':i===2?'#cd7f32':'var(--surface2)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${i<3?'white':'var(--muted)'};">${i+1}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.student_name}</div>
+              <div style="font-size:11px;color:var(--muted)">${s.register_number}</div>
+            </div>
+            <div style="font-size:16px;font-weight:700;color:${cgpaColors(s)}">${parseFloat(s.cgpa||0).toFixed(2)}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- Quick Actions + Recent -->
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:20px">
+      <div style="min-width:200px">
+        <div class="card" style="padding:22px">
+          <div style="font-weight:700;color:var(--ink);margin-bottom:14px;font-size:15px">Quick Actions</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <button class="btn btn-primary" onclick="navigate('add-student')" style="justify-content:flex-start">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              Add Student
+            </button>
+            <button class="btn btn-ghost" onclick="navigate('students')" style="justify-content:flex-start">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              View All
+            </button>
+            <button class="btn btn-ghost" onclick="navigate('announce')" style="justify-content:flex-start">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 17H2a3 3 0 000 6h20a3 3 0 000-6z"/><path d="M4 17V4a2 2 0 012-2h12a2 2 0 012 2v13"/></svg>
+              Announce
+            </button>
+            <button class="btn btn-ghost" onclick="downloadCSV()" style="justify-content:flex-start">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export CSV
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Students -->
+      <div class="card" style="overflow:hidden">
+        <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+          <span style="font-weight:700;color:var(--ink);font-size:15px">Recently Added</span>
+          <button onclick="navigate('students')" style="font-size:13px;color:var(--accent);background:none;border:none;cursor:pointer;font-weight:500">View all →</button>
+        </div>
+        ${recentStudents.length === 0 ? `<div class="empty-state"><svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p style="color:var(--muted);font-size:14px;margin-top:8px">No students added yet.<br>Start by adding your first mentee!</p><button class="btn btn-primary" onclick="navigate('add-student')" style="margin-top:14px">Add First Student</button></div>` :
+          `<table><tbody>${recentStudents.map(s=>`
+          <tr onclick="navigate('view-student','${s.id}')" style="cursor:pointer">
+            <td>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="width:34px;height:34px;border-radius:50%;background:${stringColor(s.student_name)};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:white;flex-shrink:0">${initials(s.student_name)}</div>
+                <div>
+                  <div style="font-weight:600;color:var(--ink)">${s.student_name}</div>
+                  <div style="font-size:12px;color:var(--muted)">${s.register_number}</div>
+                </div>
+              </div>
+            </td>
+            <td style="text-align:right">
+              <div style="font-weight:700;font-size:16px;color:${cgpaColors(s)}">${parseFloat(s.cgpa||0).toFixed(2)}</div>
+              <div style="font-size:11px;color:var(--muted)">CGPA</div>
+            </td>
+            <td>${s.arrears_details?.trim() ? '<span class="badge badge-red">Arrears</span>' : '<span class="badge badge-green">Clear</span>'}</td>
+          </tr>`).join('')}</tbody></table>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+function statCard(label, value, color, icon, sub, page) {
+  return `<div class="stat-card" onclick="navigate('${page}')" style="cursor:pointer">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <p style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">${label}</p>
+        <p style="font-size:34px;font-weight:700;color:var(--ink);line-height:1">${value}</p>
+        <p style="font-size:12px;color:var(--muted);margin-top:6px">${sub}</p>
+      </div>
+      <div style="width:40px;height:40px;border-radius:12px;background:${color}18;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="18" height="18" fill="none" stroke="${color}" stroke-width="2" viewBox="0 0 24 24">${icon}</svg>
+      </div>
+    </div>
+    <div style="margin-top:14px;height:3px;border-radius:99px;background:var(--border)">
+      <div style="height:100%;border-radius:99px;background:${color};width:${Math.min(100,value*8+20)}%;max-width:100%"></div>
+    </div>
+  </div>`;
+}
+
+function cgpaDistribution(students) {
+  const buckets = [
+    { label:'9-10', min:9, max:10, color:'#10b981' },
+    { label:'8-9', min:8, max:9, color:'#3b82f6' },
+    { label:'7-8', min:7, max:8, color:'#6366f1' },
+    { label:'6-7', min:6, max:7, color:'#f59e0b' },
+    { label:'<6', min:0, max:6, color:'#ef4444' },
+  ];
+  const total = students.length || 1;
+  return buckets.map(b => {
+    const count = students.filter(s => { const v=parseFloat(s.cgpa||0); return v>=b.min && v<b.max+(b.max===10?.001:0); }).length;
+    const pct = Math.round(count/total*100);
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span style="color:var(--ink2);font-weight:500">CGPA ${b.label}</span>
+        <span style="color:var(--muted)">${count} (${pct}%)</span>
+      </div>
+      <div class="cgpa-bar"><div class="cgpa-fill" style="width:${pct}%;background:${b.color}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Students List ─────────────────────────────────────────────────────────────
+async function renderStudents() {
+  const students = await fetchStudents();
+  renderStudentsPage(students);
+}
+
+function renderStudentsPage(students) {
+  document.getElementById('page-content').innerHTML = `
+  <div class="fade-up">
+    <div class="section-header">
+      <div>
+        <h2 style="font-size:22px;color:var(--ink)">All Students</h2>
+        <p style="color:var(--muted);font-size:13px">${students.length} mentee${students.length!==1?'s':''} total</p>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-ghost" onclick="downloadCSV()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export CSV
+        </button>
+        <button class="btn btn-primary" onclick="navigate('add-student')">
+          + Add Student
+        </button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;padding:14px 16px">
+      <div class="search-wrap">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="field" id="search-inp" placeholder="Search by name or register number…" oninput="filterStudents(this.value)" style="padding-left:36px"/>
+      </div>
+    </div>
+
+    <div class="card" style="overflow:hidden" id="students-table-wrap">
+      ${renderStudentTable(students)}
+    </div>
+    <p id="stu-count" style="font-size:12px;color:var(--muted);margin-top:10px">Showing ${students.length} student${students.length!==1?'s':''}</p>
+  </div>`;
+}
+
+function renderStudentTable(list) {
+  if (!list.length) return `<div class="empty-state">
+    <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+    <p style="color:var(--muted);font-size:14px;margin-top:12px">No students found.</p>
+    <button class="btn btn-primary" onclick="navigate('add-student')" style="margin-top:14px">Add First Student</button>
+  </div>`;
+
+  return `<table>
+    <thead><tr>
+      <th>Student</th><th>Register No.</th><th>Email</th>
+      <th>CGPA</th><th>GPA</th><th>Status</th><th style="text-align:right">Actions</th>
+    </tr></thead>
+    <tbody>${list.map(s=>`
+    <tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:32px;height:32px;border-radius:50%;background:${stringColor(s.student_name)};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:white;flex-shrink:0">${initials(s.student_name)}</div>
+          <button onclick="navigate('view-student','${s.id}')" style="background:none;border:none;cursor:pointer;font-weight:600;color:var(--accent);font-size:14px;font-family:inherit;text-align:left;padding:0">${s.student_name}</button>
+        </div>
+      </td>
+      <td style="font-family:monospace;font-size:13px">${s.register_number}</td>
+      <td style="color:var(--muted);font-size:13px">${s.email}</td>
+      <td><span style="font-weight:700;color:${cgpaColor(s.cgpa)}">${parseFloat(s.cgpa||0).toFixed(2)}</span></td>
+      <td><span style="font-weight:600;color:${cgpaColor(s.gpa)}">${parseFloat(s.gpa||0).toFixed(2)}</span></td>
+      <td>${s.arrears_details?.trim() ? '<span class="badge badge-red">Arrears</span>' : '<span class="badge badge-green">Clear</span>'}</td>
+      <td>
+        <div style="display:flex;gap:4px;justify-content:flex-end">
+          <button title="View" onclick="navigate('view-student','${s.id}')" style="padding:6px;border:none;background:none;cursor:pointer;color:var(--accent);border-radius:6px;transition:background .15s" onmouseover="this.style.background='rgba(79,110,247,.1)'" onmouseout="this.style.background='none'">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <button title="Edit" onclick="navigate('edit-student','${s.id}')" style="padding:6px;border:none;background:none;cursor:pointer;color:var(--warning);border-radius:6px;transition:background .15s" onmouseover="this.style.background='rgba(245,158,11,.1)'" onmouseout="this.style.background='none'">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button title="Delete" onclick="deleteStudent('${s.id}','${escAttr(s.student_name)}')" style="padding:6px;border:none;background:none;cursor:pointer;color:var(--danger);border-radius:6px;transition:background .15s" onmouseover="this.style.background='rgba(239,68,68,.1)'" onmouseout="this.style.background='none'">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+function filterStudents(term) {
+  const filtered = !term.trim() ? S.students
+    : S.students.filter(s =>
+        s.student_name.toLowerCase().includes(term.toLowerCase()) ||
+        s.register_number.toLowerCase().includes(term.toLowerCase()) ||
+        s.email.toLowerCase().includes(term.toLowerCase()));
+  document.getElementById('students-table-wrap').innerHTML = renderStudentTable(filtered);
+  const el = document.getElementById('stu-count');
+  if (el) el.textContent = `Showing ${filtered.length} of ${S.students.length} student${S.students.length!==1?'s':''}`;
+}
+
+async function deleteStudent(id, name) {
+  if (!confirm(`Delete ${name}? This cannot be undone.`)) return;
+  const { error } = await sb.from('students').delete().eq('id', id);
+  if (error) { notify('Delete failed: ' + error.message, 'error'); return; }
+  S.students = S.students.filter(s => s.id !== id);
+  notify(`${name} deleted.`, 'info');
+  renderStudentsPage(S.students);
+}
+
+// ─── Add / Edit Student ───────────────────────────────────────────────────────
+const BLOOD_GROUPS = ['A+','A-','B+','B-','AB+','AB-','O+','O-'];
+
+function studentFormHTML(d={}, isEdit=false) {
+  const v = k => d[k] || '';
+  const f = (id, label, type='text', extra='', req=true) => `
+    <div>
+      <label class="lbl">${label}${req?' <span style="color:var(--danger)">*</span>':''}</label>
+      <input id="sf-${id}" type="${type}" class="field" value="${escAttr(v(id))}" ${extra} ${req?'required':''}/>
+    </div>`;
+  const ta = (id, label, req=false) => `
+    <div style="grid-column:1/-1">
+      <label class="lbl">${label}</label>
+      <textarea id="sf-${id}" class="field" rows="2" style="resize:vertical" ${req?'required':''}>${v(id)}</textarea>
+    </div>`;
+
+  return `
+  <div style="margin-bottom:24px">
+    <h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:14px">Personal Information</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      ${f('student_name','Student Name')}
+      ${f('register_number','Register Number')}
+      ${f('phone_number','Phone Number','tel')}
+      ${f('email','Email','email')}
+      ${f('date_of_birth','Date of Birth','date')}
+      <div>
+        <label class="lbl">Blood Group <span style="color:var(--danger)">*</span></label>
+        <select id="sf-blood_group" class="field" required>
+          <option value="">— Select —</option>
+          ${BLOOD_GROUPS.map(g=>`<option value="${g}" ${v('blood_group')===g?'selected':''}>${g}</option>`).join('')}
+        </select>
+      </div>
+      <div style="grid-column:1/-1">
+        <label class="lbl">Address <span style="color:var(--danger)">*</span></label>
+        <textarea id="sf-address" class="field" rows="2" style="resize:vertical" required>${v('address')}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:24px">
+    <h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:14px">Parent Information</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      ${f('parent_name','Parent Name')}
+      ${f('parent_occupation','Occupation')}
+      ${f('parent_phone','Parent Phone','tel')}
+    </div>
+  </div>
+
+  <div style="margin-bottom:24px">
+    <h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:14px">Academic Information</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      ${f('cgpa','CGPA','number','step="0.01" min="0" max="10" placeholder="0.00"')}
+      ${f('gpa','GPA (Current Sem)','number','step="0.01" min="0" max="10" placeholder="0.00"')}
+      ${ta('arrears_details','Arrears Details (leave blank if none)')}
+    </div>
+  </div>
+
+  <div>
+    <h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:14px">Additional Information</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      ${ta('siblings_details','Siblings Details')}
+      ${ta('scholarship_details','Scholarship Details')}
+      ${ta('hackathon_details','Hackathon / Achievements')}
+    </div>
+  </div>`;
+}
+
+function getFormData() {
+  const ids = ['student_name','register_number','phone_number','email','date_of_birth','blood_group','address','parent_name','parent_occupation','parent_phone','cgpa','gpa','arrears_details','siblings_details','scholarship_details','hackathon_details'];
+  const d = {};
+  for (const id of ids) {
+    const el = document.getElementById('sf-'+id);
+    d[id] = el ? el.value : '';
+  }
+  d.cgpa = parseFloat(d.cgpa)||0;
+  d.gpa = parseFloat(d.gpa)||0;
+  return d;
+}
+
+function renderAddStudent() {
+  document.getElementById('page-content').innerHTML = `
+  <div class="fade-up" style="max-width:760px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+      <button onclick="navigate('students')" class="btn btn-ghost" style="padding:8px 12px">← Back</button>
+      <h2 style="font-size:20px;color:var(--ink)">Add New Student</h2>
+    </div>
+    <div id="form-msg"></div>
+    <div class="card" style="padding:28px">
+      ${studentFormHTML()}
+      <div style="border-top:1px solid var(--border);margin-top:24px;padding-top:20px;display:flex;gap:10px">
+        <button class="btn btn-primary" id="sf-submit-btn" onclick="submitAddStudent()">💾 Add Student</button>
+        <button class="btn btn-ghost" onclick="navigate('students')">Cancel</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function submitAddStudent() {
+  const btn = document.getElementById('sf-submit-btn');
+  const data = getFormData();
+  if (!data.student_name || !data.register_number || !data.email || !data.date_of_birth || !data.blood_group || !data.address || !data.parent_name || !data.parent_occupation || !data.parent_phone) {
+    showFormMsg('Please fill all required fields.', 'error'); return;
+  }
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  data.mentor_id = S.user.id;
+  const { error } = await sb.from('students').insert(data);
+  if (error) { showFormMsg(error.message, 'error'); btn.textContent='💾 Add Student'; btn.disabled=false; return; }
+  notify('Student added successfully!', 'success');
+  navigate('students');
+}
+
+async function renderEditStudent(id) {
+  const { data: s, error } = await sb.from('students').select('*').eq('id', id).maybeSingle();
+  if (error || !s) { notify('Student not found.', 'error'); navigate('students'); return; }
+  S.currentStudentId = id;
+  document.getElementById('page-content').innerHTML = `
+  <div class="fade-up" style="max-width:760px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+      <button onclick="navigate('view-student','${id}')" class="btn btn-ghost" style="padding:8px 12px">← Back</button>
+      <h2 style="font-size:20px;color:var(--ink)">Edit: ${s.student_name}</h2>
+    </div>
+    <div id="form-msg"></div>
+    <div class="card" style="padding:28px">
+      ${studentFormHTML(s, true)}
+      <div style="border-top:1px solid var(--border);margin-top:24px;padding-top:20px;display:flex;gap:10px">
+        <button class="btn btn-primary" id="sf-submit-btn" onclick="submitEditStudent('${id}')">💾 Save Changes</button>
+        <button class="btn btn-ghost" onclick="navigate('view-student','${id}')">Cancel</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function submitEditStudent(id) {
+  const btn = document.getElementById('sf-submit-btn');
+  const data = getFormData();
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  const { error } = await sb.from('students').update(data).eq('id', id);
+  if (error) { showFormMsg(error.message, 'error'); btn.textContent='💾 Save Changes'; btn.disabled=false; return; }
+  notify('Student updated!', 'success');
+  navigate('view-student', id);
+}
+
+function showFormMsg(msg, type) {
+  const el = document.getElementById('form-msg');
+  if (!el) return;
+  const colors = { error: ['#fee2e2','#fca5a5','#991b1b'], success: ['#d1fae5','#6ee7b7','#065f46'] };
+  const [bg, border, text] = colors[type]||colors.error;
+  el.innerHTML = `<div style="background:${bg};border:1px solid ${border};color:${text};padding:12px 16px;border-radius:10px;font-size:14px;margin-bottom:16px">${msg}</div>`;
+}
+
+// ─── View Student ─────────────────────────────────────────────────────────────
+async function renderViewStudent(id) {
+  const { data: s, error } = await sb.from('students').select('*').eq('id', id).maybeSingle();
+  if (error || !s) { notify('Student not found.', 'error'); navigate('students'); return; }
+
+  document.getElementById('page-content').innerHTML = `
+  <div class="fade-up">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+      <button onclick="navigate('students')" class="btn btn-ghost" style="padding:8px 12px">← Back</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-ghost" onclick="navigate('edit-student','${s.id}')">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Edit
+      </button>
+      <button class="btn btn-success" onclick="downloadProfile(${JSON.stringify(s).split('"').join("'")})">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </button>
+      <button class="btn btn-danger" onclick="deleteStudent('${s.id}','${escAttr(s.student_name)}')">Delete</button>
+    </div>
+
+    <!-- Profile header -->
+    <div class="card" style="padding:24px;margin-bottom:18px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+      <div style="width:64px;height:64px;border-radius:50%;background:${stringColor(s.student_name)};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:24px;color:white;flex-shrink:0">${initials(s.student_name)}</div>
+      <div style="flex:1">
+        <h1 style="font-size:22px;color:var(--ink);margin-bottom:2px">${s.student_name}</h1>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">
+          <span style="font-size:13px;color:var(--muted)">${s.register_number}</span>
+          <span style="color:var(--border)">|</span>
+          <span style="font-size:13px;color:var(--muted)">${s.email}</span>
+          <span style="color:var(--border)">|</span>
+          <span style="font-size:13px;color:var(--muted)">${s.phone_number}</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <div style="text-align:center">
+          <div style="font-size:28px;font-weight:700;color:${cgpaColor(s.cgpa)}">${parseFloat(s.cgpa||0).toFixed(2)}</div>
+          <div style="font-size:11px;color:var(--muted)">CGPA</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:28px;font-weight:700;color:${cgpaColor(s.gpa)}">${parseFloat(s.gpa||0).toFixed(2)}</div>
+          <div style="font-size:11px;color:var(--muted)">Sem GPA</div>
+        </div>
+        <div>
+          ${s.arrears_details?.trim() ? '<span class="badge badge-red" style="font-size:13px;padding:5px 12px">⚠ Arrears</span>' : '<span class="badge badge-green" style="font-size:13px;padding:5px 12px">✓ Clear</span>'}
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <!-- Personal -->
+      <div class="card" style="padding:22px">
+        <h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:16px">Personal Information</h3>
+        ${profileRow('Date of Birth', new Date(s.date_of_birth).toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'}))}
+        ${profileRow('Blood Group', s.blood_group)}
+        ${profileRow('Address', s.address)}
+      </div>
+
+      <!-- Parent -->
+      <div class="card" style="padding:22px">
+        <h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:16px">Parent Information</h3>
+        ${profileRow('Parent Name', s.parent_name)}
+        ${profileRow('Occupation', s.parent_occupation)}
+        ${profileRow('Parent Phone', s.parent_phone)}
+      </div>
+
+      <!-- Academic -->
+      <div class="card" style="padding:22px">
+        <h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:16px">Academic Details</h3>
+        ${s.arrears_details?.trim() ?
+          `<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+            <p style="font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Arrears</p>
+            <p style="color:#7f1d1d;font-size:13px">${s.arrears_details}</p>
+          </div>` :
+          `<div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+            <p style="font-size:13px;color:#065f46;font-weight:600">✅ No arrears — all clear!</p>
+          </div>`}
+        ${s.scholarship_details?.trim() ? profileRow('Scholarship', s.scholarship_details) : ''}
+        ${s.hackathon_details?.trim() ? profileRow('Hackathons', s.hackathon_details) : ''}
+      </div>
+
+      <!-- Other -->
+      <div class="card" style="padding:22px">
+        <h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:16px">Additional Info</h3>
+        ${s.siblings_details?.trim() ? profileRow('Siblings', s.siblings_details) : profileRow('Siblings', '—')}
+        ${profileRow('Added on', new Date(s.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'}))}
+      </div>
+    </div>
+  </div>`;
+}
+
+function profileRow(label, value) {
+  return `<div style="margin-bottom:14px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:3px">${label}</div>
+    <div style="font-size:14px;color:var(--ink2)">${value}</div>
+  </div>`;
+}
+
+// ─── Announcements ────────────────────────────────────────────────────────────
+function renderAnnounce() {
+  document.getElementById('page-content').innerHTML = `
+  <div class="fade-up" style="max-width:600px">
+    <div style="margin-bottom:24px">
+      <h2 style="font-size:22px;color:var(--ink)">Send Announcement</h2>
+      <p style="color:var(--muted);font-size:13px;margin-top:4px">Broadcast a message to all your mentees via email.</p>
+    </div>
+
+    <div class="card" style="padding:28px">
+      <div style="margin-bottom:18px">
+        <label class="lbl">Message</label>
+        <textarea id="ann-msg" class="field" rows="6" placeholder="Type your announcement here…" style="resize:vertical"></textarea>
+      </div>
+      <div id="ann-msg-status"></div>
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button class="btn btn-primary" id="ann-btn" onclick="sendAnnouncement()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Send to All Students
+        </button>
+      </div>
+    </div>
+
+  </div>`;
+}
+
+async function sendAnnouncement() {
+  const msg = document.getElementById('ann-msg').value.trim();
+  const btn = document.getElementById('ann-btn');
+  const statusEl = document.getElementById('ann-msg-status');
+  if (!msg) { statusEl.innerHTML = '<p style="color:var(--danger);font-size:13px;margin-bottom:12px">Please write a message first.</p>'; return; }
+
+  btn.textContent = 'Sending…'; btn.disabled = true;
+  statusEl.innerHTML = '';
+
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const token = session?.access_token || '';
+    const res = await fetch('/api/announcement', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${token}` },
+      body: JSON.stringify({ message: msg })
+    });
+    // Safely parse response - handle empty or non-JSON responses
+    const text = await res.text();
+    let result;
+    try { result = JSON.parse(text); } catch(_) { throw new Error('Server returned an invalid response. Check server logs.'); }
+    if (!res.ok) throw new Error(result.error || 'Server error');
+    if (result.errors && result.errors.length > 0) {
+      statusEl.innerHTML = `<div style="background:#fef3c7;border:1px solid #fcd34d;color:#92400e;padding:12px 16px;border-radius:10px;font-size:14px;margin-bottom:16px">⚠️ Sent to ${result.sent}/${result.total} students. ${result.errors.length} failed — check Gmail App Password.</div>`;
+    } else {
+      statusEl.innerHTML = `<div style="background:#d1fae5;border:1px solid #6ee7b7;color:#065f46;padding:12px 16px;border-radius:10px;font-size:14px;margin-bottom:16px">✅ Sent to ${result.sent} of ${result.total} students!</div>`;
+    }
+    document.getElementById('ann-msg').value = '';
+    notify('Announcement sent!', 'success');
+  } catch(e) {
+    let errMsg = e.message;
+    if (errMsg.includes('fetch') || errMsg.includes('NetworkError')) errMsg = 'Cannot reach server. Make sure Flask is running.';
+    if (errMsg.includes('SMTP')) errMsg = 'Email sending failed. Check your Gmail App Password in .env';
+    statusEl.innerHTML = `<div style="background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:16px">⚠️ ${errMsg}</div>`;
+  } finally {
+    btn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Send to All Students';
+    btn.disabled = false;
+  }
+}
+
+// ─── CSV Download ─────────────────────────────────────────────────────────────
+function downloadCSV() {
+  if (!S.students.length) { notify('No students to export.', 'info'); return; }
+  const h = ['Name','Register No','Phone','Email','DOB','Blood Group','Address','Parent','Parent Occ','Parent Ph','CGPA','GPA','Arrears','Scholarship','Hackathons','Siblings'];
+  const rows = S.students.map(s=>[
+    q(s.student_name),s.register_number,s.phone_number,s.email,s.date_of_birth,s.blood_group,
+    q(s.address),q(s.parent_name),q(s.parent_occupation),s.parent_phone,
+    s.cgpa,s.gpa,q(s.arrears_details||''),q(s.scholarship_details||''),q(s.hackathon_details||''),q(s.siblings_details||'')
+  ].join(','));
+  const csv = [h.join(','),...rows].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download = `students_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  notify('CSV downloaded!', 'success');
+}
+const q = s => `"${String(s).replace(/"/g,'""')}"`;
+
+function downloadProfile(s) {
+  if (!s || typeof s === 'string') { notify('No student data.', 'error'); return; }
+  const txt = `STUDENT PROFILE\n${'='.repeat(50)}\nName: ${s.student_name}\nRegister Number: ${s.register_number}\nEmail: ${s.email}\nPhone: ${s.phone_number}\nDate of Birth: ${s.date_of_birth}\nBlood Group: ${s.blood_group}\nAddress: ${s.address}\n\nPARENT INFORMATION\nParent Name: ${s.parent_name}\nOccupation: ${s.parent_occupation}\nParent Phone: ${s.parent_phone}\n\nACADEMIC INFORMATION\nCGPA: ${s.cgpa}\nSem GPA: ${s.gpa}\nArrears: ${s.arrears_details||'None'}\n\nADDITIONAL\nSiblings: ${s.siblings_details||'None'}\nScholarship: ${s.scholarship_details||'None'}\nHackathons: ${s.hackathon_details||'None'}\n${'='.repeat(50)}\nGenerated: ${new Date().toLocaleString()}`;
+  const a = document.createElement('a');
+  a.href = 'data:text/plain;charset=utf-8,'+encodeURIComponent(txt);
+  a.download = `${s.register_number}_profile.txt`;
+  a.click();
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+function cgpaColor(v) {
+  v = parseFloat(v||0);
+  if (v >= 8.5) return '#10b981';
+  if (v >= 7.0) return '#3b82f6';
+  if (v >= 6.0) return '#f59e0b';
+  return '#ef4444';
+}
+
+function initials(name) {
+  return (name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+}
+
+function stringColor(s) {
+  const colors = ['#6366f1','#8b5cf6','#ec4899','#f43f5e','#14b8a6','#0ea5e9','#f59e0b','#10b981'];
+  let h = 0;
+  for (let i=0; i<(s||'').length; i++) h = (h*31+s.charCodeAt(i))%colors.length;
+  return colors[Math.abs(h)];
+}
+
+function escAttr(s) {
+  return String(s||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ─── Mobile sidebar ────────────────────────────────────────────────────────────
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebar-overlay').classList.add('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('show');
+}
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
